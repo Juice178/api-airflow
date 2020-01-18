@@ -1,0 +1,5 @@
+logs/
+dags/*/__pycache__/
+airflow.cfg
+airflow.db
+unittests.cfg
