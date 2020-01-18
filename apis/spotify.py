@@ -1,11 +1,22 @@
-"""A wrapper class for spotipy
+"""
+A wrapper class for spotipy
 """
 
-from spotipy import Spotify, SpotifyException
+from spotipy import Spotify
 from spotipy.oauth2 import SpotifyClientCredentials, SpotifyOauthError
 
 
+class AuthError(Exception):
+    def __init__(self, msg):
+        self.msg = msg 
+    def __str__(self):
+        return f"Authorization Error : {self.msg}"
+
+
 class Spotipy(object):
+    """
+    A wrapper class for spotipy
+    """
     def __init__(self, client_id, client_secret):
         self._sp = self.set_client(client_id, client_secret)
 
@@ -17,7 +28,8 @@ class Spotipy(object):
         sp = Spotify(client_credentials_manager=client_credentials_manager)
 
         if not self.is_credential_valid(sp):
-            raise Exception("Invalid credential")
+            msg = "Invalid credential"
+            raise AuthError(msg)
 
         return sp
 
