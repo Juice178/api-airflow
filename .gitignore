@@ -1,4 +1,5 @@
 logs/
+conf/
 dags/*/__pycache__/
 airflow.cfg
 airflow.db
