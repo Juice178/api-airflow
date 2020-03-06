@@ -1,6 +1,7 @@
 logs/
 conf/
 dags/*/__pycache__/
+dags/*/conf/
 airflow.cfg
 airflow.db
 unittests.cfg

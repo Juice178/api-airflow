@@ -2,11 +2,11 @@ from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
-from datetime import datetime, timedelta
-from utils.config import get_info
-import os
-import sys
 
+import sys
+from datetime import datetime, timedelta
+import os
+from lib.config import get_info
 
 default_args = {
     'owner': 'Airflow', 
