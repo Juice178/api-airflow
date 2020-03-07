@@ -20,6 +20,9 @@ class Spotipy(object):
     def __init__(self, client_id, client_secret):
         self._sp = self.set_client(client_id, client_secret)
 
+    def debug(self):
+        return 'Hello'
+
     def set_client(self, client_id, client_secret):
         """
         Creates a Spotify API client
