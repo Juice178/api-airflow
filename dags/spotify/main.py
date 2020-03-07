@@ -1,13 +1,12 @@
 from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
+from custom_operator.spotify_operator import SpotifyOperator
 
 
 import sys
 from datetime import datetime, timedelta
 import os
-from lib.config import get_info
-from apis import spotify
 
 default_args = {
     'owner': 'Airflow', 
@@ -35,11 +34,9 @@ t0 = DummyOperator(
     dag=dag,
 )
 
-t1 = PythonOperator(
-    task_id="read_credential", 
-    python_callable=get_info, 
-    provide_context=True,
-    op_args=['dags/spotify/conf/credentials.yml'],
+t1 = SpotifyOperator(
+    task_id="read_credential",
+    conf='./dags/spotify/conf/credentials.yml',
     dag=dag
 )
 
