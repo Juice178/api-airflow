@@ -1,5 +1,8 @@
 import yaml
-def get_info(conf_file):
+import os
+def get_info(conf_file, **context):
+    print('---------------------')
+    print(os.listdir())
     with open(conf_file, 'r') as stream:
         try:
             print(yaml.safe_load(stream))

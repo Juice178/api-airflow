@@ -1,6 +1,6 @@
 logs/
 conf/
-dags/*/conf/
+dags/*/conf/*
 /*/__pycache__/
 /*/*/__pycache__/
 airflow.cfg

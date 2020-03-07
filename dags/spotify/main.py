@@ -7,28 +7,27 @@ import sys
 from datetime import datetime, timedelta
 import os
 from lib.config import get_info
+from apis import spotify
 
 default_args = {
     'owner': 'Airflow', 
     'depends_on_past' : False, 
-    'start_date' : datetime(2015, 6, 1), 
+    'start_date' : datetime(2020, 3, 1), 
+    'end_date' : datetime(2020, 3, 2), 
     'email': ['ariflow@example.com'], 
     'email_on_failure': False, 
     'email_on_retry': False, 
-    'retries': 1, 
-    'retry_delay': timedelta(minutes=5), 
+    'retries': 0, 
+    'retry_delay': timedelta(minutes=10), 
     # 'queue': 'bash_queue',
     # 'pool': 'backfill',
     # 'priority_weight': 10,
     # 'end_date': datetime(2016, 1, 1),
 }
 
-path = os.getcwd()
-dag_name = os.path.basename(path)
 dag = DAG(
-      dag_name, default_args=default_args, schedule_interval=timedelta(days=1)
+      dag_id="spotify", default_args=default_args, schedule_interval=timedelta(days=1)
     )
-
 
 t0 = DummyOperator(
     task_id='start',
@@ -38,7 +37,9 @@ t0 = DummyOperator(
 
 t1 = PythonOperator(
     task_id="read_credential", 
-    python_callable=get_info(dag_name),
+    python_callable=get_info, 
+    provide_context=True,
+    op_args=['dags/spotify/conf/credentials.yml'],
     dag=dag
 )
 
