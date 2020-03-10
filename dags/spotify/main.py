@@ -31,8 +31,14 @@ default_args = {
 def _create_instance(conf, **context):
     client_credential = read_credential(conf)
     sp_client = Spotipy(client_credential['client_id'], client_credential['client_secret'])
+    context['task_instance'].xcom_push(key='sp_client', value = sp_client)
     msg = sp_client.debug()
     print(msg)
+
+
+def _test(**context):
+    sp_client = context['task_instance'].xcom_pull(key='sp_client')
+    print(sp_client.debug())
 
 
 dag = DAG(
@@ -54,4 +60,12 @@ t1 = PythonOperator(
     dag=dag
 )
 
-t0 >> t1
+t2 = PythonOperator(
+    task_id="debug",
+    # conf='./dags/spotify/conf/credentials.yml',
+    python_callable = _test,
+    provide_context=True,
+    dag=dag
+)
+
+t0 >> t1 >> t2
