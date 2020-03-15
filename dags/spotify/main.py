@@ -46,12 +46,12 @@ def _get_top50(**context):
     context['task_instance'].xcom_push(key='playlist', value = playlist)
 
 
-def _get_artist_info(**context):
+def _get_artist_info(country, **context):
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     playlist = context['task_instance'].xcom_pull(key='playlist')
     artist_ids = playlist['artist_id']
     for artist_id in artist_ids:
-        sp_client.get_artist_top_10_tracks(artist_id)
+        sp_client.get_artist_top_10_tracks(artist_id, country)
 
 def subdag(parent_dag_name, child_dag_name, args, t2, **context):
     """ 各idに対して実行する処理フローを記述したDAGを返す """
@@ -106,18 +106,20 @@ t2 = PythonOperator(
 )
 
 t3 = PythonOperator(
-    task_id="get_1",
+    task_id="top_10_tracks-US",
     # conf='./dags/spotify/conf/credentials.yml',
-    python_callable =  _test,
+    python_callable =  _get_artist_info,
     provide_context=True,
+    op_kwargs={'country': 'US'},
     dag=dag
 )
 
 t4 = PythonOperator(
-    task_id="get_2",
+    task_id="top_10_tracks-JP",
     # conf='./dags/spotify/conf/credentials.yml',
-    python_callable =  _test,
+    python_callable =  _get_artist_info,
     provide_context=True,
+    op_kwargs={'country': 'JP'},
     dag=dag
 )
 

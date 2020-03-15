@@ -71,7 +71,7 @@ class Spotipy(object):
 
     def get_playlist_tracks(self, playlist_id, limit=10):
         offset = 0
-        playlist_info = {'artist_name': [], 'airtist_id': [], 'album_name': [], 'relase_date': [], }
+        playlist_info = {'artist_name': [], 'artist_id': [], 'album_name': [], 'relase_date': [], }
         while True:
             response = self._sp.playlist_tracks(playlist_id, offset=offset, limit=limit)
             offset = offset + len(response['items'])
@@ -79,7 +79,7 @@ class Spotipy(object):
                 break
             for item in response['items']:
                 playlist_info['artist_name'].append(item['track']['artists'][0]['name'])
-                playlist_info['airtist_id'].append(item['track']['artists'][0]['id'])
+                playlist_info['artist_id'].append(item['track']['artists'][0]['id'])
                 playlist_info['album_name'].append(item['track']['album']['name'])
                 playlist_info['relase_date'].append(item['track']['album']['release_date'])
         return playlist_info
