@@ -29,6 +29,7 @@ default_args = {
 
 
 def _create_instance(conf, **context):
+    print(os.listdir())
     client_credential = read_credential(conf)
     sp_client = Spotipy(client_credential['client_id'], client_credential['client_secret'])
     context['task_instance'].xcom_push(key='sp_client', value = sp_client)
@@ -36,10 +37,16 @@ def _create_instance(conf, **context):
     print(msg)
 
 
+def _get_top50(**context):
+    sp_client = context['task_instance'].xcom_pull(key='sp_client')
+    playlist_id = 'spotify:playlist:37i9dQZEVXbMDoHDwVN2tF'
+    playlist = sp_client.get_playlist_tracks(playlist_id=playlist_id, limit=50)
+    print(playlist)
+
+
 def _test(**context):
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     print(sp_client.debug())
-
 
 dag = DAG(
       dag_id="spotify", default_args=default_args, schedule_interval=timedelta(days=1)
@@ -61,9 +68,9 @@ t1 = PythonOperator(
 )
 
 t2 = PythonOperator(
-    task_id="debug",
+    task_id="get_top50",
     # conf='./dags/spotify/conf/credentials.yml',
-    python_callable = _test,
+    python_callable =  _get_top50,
     provide_context=True,
     dag=dag
 )
