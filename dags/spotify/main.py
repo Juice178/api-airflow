@@ -1,6 +1,8 @@
 from airflow import DAG
+from airflow.executors.celery_executor import CeleryExecutor
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
+from airflow.operators.subdag_operator import SubDagOperator
 # from custom_operator.spotify_operator import SpotifyOperator
 
 
@@ -41,15 +43,43 @@ def _get_top50(**context):
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     playlist_id = 'spotify:playlist:37i9dQZEVXbMDoHDwVN2tF'
     playlist = sp_client.get_playlist_tracks(playlist_id=playlist_id, limit=50)
-    print(playlist)
+    context['task_instance'].xcom_push(key='playlist', value = playlist)
 
+
+def _get_artist_info(**context):
+    sp_client = context['task_instance'].xcom_pull(key='sp_client')
+    playlist = context['task_instance'].xcom_pull(key='playlist')
+    artist_ids = playlist['artist_id']
+    for artist_id in artist_ids:
+        sp_client.get_artist_top_10_tracks(artist_id)
+
+def subdag(parent_dag_name, child_dag_name, args, t2, **context):
+    """ 各idに対して実行する処理フローを記述したDAGを返す """
+    #sp_client = context['task_instance'].xcom_pull(key='sp_client')
+    sub_dag = DAG(dag_id=f"{parent_dag_name}.{child_dag_name}", default_args=args)
+    #sub_dag = DAG(dag_id="{}.{}".format(parent_dag_name, child_dag_name), default_args=args)
+    print("-- test end --")
+    for country in ['US', 'JPN']:
+        t3 = PythonOperator(
+            task_id='{}-task-1'.format(country),
+            # conf='./dags/spotify/conf/credentials.yml',
+            python_callable = _test,
+            provide_context=True,
+            dag=sub_dag
+        )
+        # t2 >> t3
+
+    return sub_dag
 
 def _test(**context):
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     print(sp_client.debug())
 
+
+DAG_NAME = "spotify"
+
 dag = DAG(
-      dag_id="spotify", default_args=default_args, schedule_interval=timedelta(days=1)
+      dag_id=DAG_NAME, default_args=default_args, schedule_interval=timedelta(days=1)
     )
 
 t0 = DummyOperator(
@@ -75,4 +105,29 @@ t2 = PythonOperator(
     dag=dag
 )
 
-t0 >> t1 >> t2
+t3 = PythonOperator(
+    task_id="get_1",
+    # conf='./dags/spotify/conf/credentials.yml',
+    python_callable =  _test,
+    provide_context=True,
+    dag=dag
+)
+
+t4 = PythonOperator(
+    task_id="get_2",
+    # conf='./dags/spotify/conf/credentials.yml',
+    python_callable =  _test,
+    provide_context=True,
+    dag=dag
+)
+
+# t3 = SubDagOperator(
+#     task_id='subdag',
+#     # executor=CeleryExecutor(),  # デフォルトはSequentialExecutorで並列実行されない
+#     subdag=subdag(DAG_NAME, 'subdag', default_args, t2),
+#     default_args=default_args,
+#     provide_context=True,
+#     dag=dag,
+# )
+
+t0 >> t1 >> t2 >> [t3, t4]
