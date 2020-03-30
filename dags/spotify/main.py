@@ -3,6 +3,7 @@ from airflow.executors.celery_executor import CeleryExecutor
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.subdag_operator import SubDagOperator
+import pandas as pd
 # from custom_operator.spotify_operator import SpotifyOperator
 
 
@@ -50,8 +51,24 @@ def _get_artist_info(country, **context):
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     playlist = context['task_instance'].xcom_pull(key='playlist')
     artist_ids = playlist['artist_id']
-    for artist_id in artist_ids:
-        sp_client.get_artist_top_10_tracks(artist_id, country)
+    for i, artist_id in enumerate(artist_ids):
+        tracks = sp_client.get_artist_top_10_tracks(artist_id, country)
+        if i == 0:
+            df = create_dataframe(artist_id, tracks)
+        else:
+            tmp_df = create_dataframe(artist_id, tracks)
+            df = df.append(tmp_df, ignore_index=True)
+
+
+def create_dataframe(artist_id, tracks):
+    d = {'artist_id': [artist_id] * len(tracks), 'album_name': [], 'song_name': [], 'release_date': [], 'total_tracks': []}
+    for track in tracks:
+        d['album_name'].append(track['album']['name'])
+        d['song_name'].append(track['name'])
+        d['release_date'].append(track['album']['release_date'])
+        d['total_tracks'].append(track['album']['total_tracks'])
+    df = pd.DataFrame(data=d)
+    return df
 
 def subdag(parent_dag_name, child_dag_name, args, t2, **context):
     """ 各idに対して実行する処理フローを記述したDAGを返す """
