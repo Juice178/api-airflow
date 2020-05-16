@@ -33,24 +33,30 @@ default_args = {
 
 def _create_instance(conf, **context):
     print(os.listdir())
-    client_credential = read_credential(conf)
-    sp_client = Spotipy(client_credential['client_id'], client_credential['client_secret'])
+    parameter = read_credential(conf)
+    sp_client = Spotipy(parameter['client_id'], parameter['client_secret'])
     context['task_instance'].xcom_push(key='sp_client', value = sp_client)
     msg = sp_client.debug()
     print(msg)
+    context['task_instance'].xcom_push(key='parameter', value = parameter)
 
 
-def _get_top50(**context):
+def _get_top50(country, **context):
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
-    playlist_id = 'spotify:playlist:37i9dQZEVXbMDoHDwVN2tF'
-    playlist = sp_client.get_playlist_tracks(playlist_id=playlist_id, limit=50)
-    context['task_instance'].xcom_push(key='playlist', value = playlist)
+    parameter = context['task_instance'].xcom_pull(key='parameter')
+    playlist = sp_client.get_playlist_tracks(playlist_id=parameter[f"{country}_top50"], limit=50)
+    context['task_instance'].xcom_push(key=f"{country}_top50_playlist", value = playlist)
 
 
 def _get_artist_info(country, **context):
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
-    playlist = context['task_instance'].xcom_pull(key='playlist')
+    if country == "JP":
+        playlist = context['task_instance'].xcom_pull(key='japan_top50_playlist')
+    else:
+        playlist = context['task_instance'].xcom_pull(key='global_top50_playlist')
+
     artist_ids = playlist['artist_id']
+
     for i, artist_id in enumerate(artist_ids):
         tracks = sp_client.get_artist_top_10_tracks(artist_id, country)
         if i == 0:
@@ -115,14 +121,24 @@ t1 = PythonOperator(
 )
 
 t2 = PythonOperator(
-    task_id="get_top50",
+    task_id="get_global_top50",
     # conf='./dags/spotify/conf/credentials.yml',
     python_callable =  _get_top50,
     provide_context=True,
+    op_kwargs={'country': 'global'},
     dag=dag
 )
 
 t3 = PythonOperator(
+    task_id="get_japan_top50",
+    # conf='./dags/spotify/conf/credentials.yml',
+    python_callable =  _get_top50,
+    provide_context=True,
+    op_kwargs={'country': 'japan'},
+    dag=dag
+)
+
+t4 = PythonOperator(
     task_id="top_10_tracks-US",
     # conf='./dags/spotify/conf/credentials.yml',
     python_callable =  _get_artist_info,
@@ -131,7 +147,7 @@ t3 = PythonOperator(
     dag=dag
 )
 
-t4 = PythonOperator(
+t5 = PythonOperator(
     task_id="top_10_tracks-JP",
     # conf='./dags/spotify/conf/credentials.yml',
     python_callable =  _get_artist_info,
@@ -149,4 +165,6 @@ t4 = PythonOperator(
 #     dag=dag,
 # )
 
-t0 >> t1 >> t2 >> [t3, t4]
+t0 >> t1 >> [t2, t3] 
+t2 >> t4
+t3 >> t5
