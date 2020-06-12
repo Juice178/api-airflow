@@ -21,7 +21,7 @@ class Spotipy(object):
         self._sp = self.set_client(client_id, client_secret)
 
     def debug(self):
-        return 'Hello'
+        return 'You created an spotify instance successfully'
 
     def set_client(self, client_id, client_secret):
         """

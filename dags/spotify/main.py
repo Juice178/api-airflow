@@ -32,6 +32,9 @@ default_args = {
 
 
 def _create_instance(conf, **context):
+    """
+    Create an instance of a wrapper class for Spotify API 
+    """
     print(os.listdir())
     parameter = read_credential(conf)
     sp_client = Spotipy(parameter['client_id'], parameter['client_secret'])
@@ -42,6 +45,9 @@ def _create_instance(conf, **context):
 
 
 def _get_top50(country, **context):
+    """
+    Get Spotify catalog information about an artist's top 10 tracks
+    """
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     parameter = context['task_instance'].xcom_pull(key='parameter')
     playlist = sp_client.get_playlist_tracks(playlist_id=parameter[f"{country}_top50"], limit=50)
@@ -49,6 +55,9 @@ def _get_top50(country, **context):
 
 
 def _get_artist_info(country, **context):
+    """
+    Get the most popular 10 songs per an artist
+    """
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     if country == "JP":
         playlist = context['task_instance'].xcom_pull(key='japan_top50_playlist')
@@ -67,6 +76,9 @@ def _get_artist_info(country, **context):
 
 
 def create_dataframe(artist_id, tracks):
+    """
+    Create a dataframe containing information about each artist
+    """
     d = {'artist_id': [artist_id] * len(tracks), 'album_name': [], 'song_name': [], 'release_date': [], 'total_tracks': []}
     for track in tracks:
         d['album_name'].append(track['album']['name'])
