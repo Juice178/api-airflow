@@ -4,6 +4,8 @@ dags/*/conf/*
 /__pycache__/
 /*/__pycache__/
 /*/*/__pycache__/
+plugins/secrets/*
 airflow.cfg
 airflow.db
+airflow-webserver.pid
 unittests.cfg
