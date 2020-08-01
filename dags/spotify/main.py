@@ -5,6 +5,7 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.operators.subdag_operator import SubDagOperator
 import pandas as pd
 import os
+import pendulum
 # from custom_operator.spotify_operator import SpotifyOperator
 
 
@@ -19,8 +20,8 @@ import os
 default_args = {
     'owner': 'Airflow', 
     'depends_on_past' : False, 
-    'start_date' : datetime(2020, 3, 1), 
-    'end_date' : datetime(2020, 3, 2), 
+    'start_date' : datetime(2020, 8, 1), 
+    # 'end_date' : datetime(2020, 3, 2),
     # 'email': ['ariflow@example.com'], 
     # 'email_on_failure': False, 
     # 'email_on_retry': False, 
@@ -60,7 +61,7 @@ def _get_top50(country, **context):
 
 def _get_artist_info(country, **context):
     """
-    Get the most popular 10 songs per an artist
+    Get the most popular 10 songs for an artist
     """
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     if country == "JP":
@@ -73,35 +74,43 @@ def _get_artist_info(country, **context):
     for i, artist_id in enumerate(artist_ids):
         tracks = sp_client.get_artist_top_10_tracks(artist_id, country)
         if i == 0:
-            df = create_dataframe(artist_id, tracks)
+            df = create_dataframe(artist_id, tracks, country)
         else:
-            tmp_df = create_dataframe(artist_id, tracks)
+            tmp_df = create_dataframe(artist_id, tracks, country)
             df = df.append(tmp_df, ignore_index=True)
 
     # print("os.listdir")
     # print(os.listdir())
     parameter = read_credential("./plugins/secrets/aws_access_key.yml")
-    # print("AWS ACCESS KEY : ", parameter)
-
+    execution_date = context['execution_date']
+    print(f"Execution date is {execution_date}")
+    partition_dt = get_partition_time(execution_date)
     env = os.getenv('env', 'stg')
-    outpath = f's3:///data-lake-{env}/spotify/top50/{country}/top10_popular_songs_of_artists.csv'
+    outpath = f's3:///data-lake-{env}/spotify/top50/{partition_dt}/top10_popular_songs_of_artists-{country}.csv'
     write_df_to_s3(df, outpath, parameter)
 
     print("Succeeded in writing csv file to s3")
 
 
-def create_dataframe(artist_id, tracks):
+def create_dataframe(artist_id, tracks, country):
     """
     Create a dataframe containing information about each artist
     """
-    d = {'artist_id': [artist_id] * len(tracks), 'album_name': [], 'song_name': [], 'release_date': [], 'total_tracks': []}
+
+    d = {'artist_id': [artist_id] * len(tracks), 'album_name': [], 'song_name': [], 'release_date': [], 'total_tracks': [], 'country': []}
     for track in tracks:
         d['album_name'].append(track['album']['name'])
         d['song_name'].append(track['name'])
         d['release_date'].append(track['album']['release_date'])
         d['total_tracks'].append(track['album']['total_tracks'])
+        d['country'].append(country)
     df = pd.DataFrame(data=d)
     return df
+
+
+def get_partition_time(execution_date):
+    dt = f"dt_y={execution_date.format('%Y')}/dt_m={execution_date.format('%Y-%m')}/dt_d={execution_date.format('%Y-%m-%d')}"
+    return dt
 
 def _test(**context):
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
@@ -111,7 +120,7 @@ def _test(**context):
 DAG_NAME = "spotify"
 
 dag = DAG(
-      dag_id=DAG_NAME, default_args=default_args, schedule_interval=timedelta(days=1)
+      dag_id=DAG_NAME, default_args=default_args, schedule_interval="@daily"
     )
 
 t0 = DummyOperator(
