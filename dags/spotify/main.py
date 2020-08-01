@@ -4,11 +4,13 @@ from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.subdag_operator import SubDagOperator
 import pandas as pd
+import os
 # from custom_operator.spotify_operator import SpotifyOperator
 
 
 from apis.spotify import Spotipy
 from lib.config import read_credential
+from lib.s3 import write_df_to_s3
 
 import sys
 from datetime import datetime, timedelta
@@ -31,11 +33,13 @@ default_args = {
 }
 
 
-def _create_instance(conf, **context):
+def _create_instance(**context):
     """
     Create an instance of a wrapper class for Spotify API 
     """
     print(os.listdir())
+    env = os.getenv('env', 'stg')
+    conf = f'./dags/spotify/conf/{env}/credentials.yml'
     parameter = read_credential(conf)
     sp_client = Spotipy(parameter['client_id'], parameter['client_secret'])
     context['task_instance'].xcom_push(key='sp_client', value = sp_client)
@@ -74,6 +78,17 @@ def _get_artist_info(country, **context):
             tmp_df = create_dataframe(artist_id, tracks)
             df = df.append(tmp_df, ignore_index=True)
 
+    # print("os.listdir")
+    # print(os.listdir())
+    parameter = read_credential("./plugins/secrets/aws_access_key.yml")
+    # print("AWS ACCESS KEY : ", parameter)
+
+    env = os.getenv('env', 'stg')
+    outpath = f's3:///data-lake-{env}/spotify/top50/{country}/top10_popular_songs_of_artists.csv'
+    write_df_to_s3(df, outpath, parameter)
+
+    print("Succeeded in writing csv file to s3")
+
 
 def create_dataframe(artist_id, tracks):
     """
@@ -87,24 +102,6 @@ def create_dataframe(artist_id, tracks):
         d['total_tracks'].append(track['album']['total_tracks'])
     df = pd.DataFrame(data=d)
     return df
-
-def subdag(parent_dag_name, child_dag_name, args, t2, **context):
-    """ 各idに対して実行する処理フローを記述したDAGを返す """
-    #sp_client = context['task_instance'].xcom_pull(key='sp_client')
-    sub_dag = DAG(dag_id=f"{parent_dag_name}.{child_dag_name}", default_args=args)
-    #sub_dag = DAG(dag_id="{}.{}".format(parent_dag_name, child_dag_name), default_args=args)
-    print("-- test end --")
-    for country in ['US', 'JPN']:
-        t3 = PythonOperator(
-            task_id='{}-task-1'.format(country),
-            # conf='./dags/spotify/conf/credentials.yml',
-            python_callable = _test,
-            provide_context=True,
-            dag=sub_dag
-        )
-        # t2 >> t3
-
-    return sub_dag
 
 def _test(**context):
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
@@ -127,7 +124,7 @@ t1 = PythonOperator(
     task_id="create_instance",
     # conf='./dags/spotify/conf/credentials.yml',
     python_callable = _create_instance,
-    op_kwargs={'conf': './dags/spotify/conf/credentials.yml'},
+    # op_kwargs={'conf': './dags/spotify/conf/credentials.yml'},
     provide_context=True,
     dag=dag
 )
