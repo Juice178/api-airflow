@@ -3,6 +3,8 @@ from airflow.executors.celery_executor import CeleryExecutor
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.subdag_operator import SubDagOperator
+from airflow.operators.dagrun_operator import TriggerDagRunOperator
+
 import pandas as pd
 import os
 import pendulum
@@ -40,7 +42,7 @@ def _create_instance(**context):
     """
     print(os.listdir())
     env = os.getenv('env', 'stg')
-    conf = f'./dags/spotify/conf/{env}/credentials.yml'
+    conf = f'./dags/spotify-collect/conf/{env}/credentials.yml'
     parameter = read_credential(conf)
     sp_client = Spotipy(parameter['client_id'], parameter['client_secret'])
     context['task_instance'].xcom_push(key='sp_client', value = sp_client)
@@ -117,7 +119,7 @@ def _test(**context):
     print(sp_client.debug())
 
 
-DAG_NAME = "spotify"
+DAG_NAME = "spotify-collect"
 
 dag = DAG(
       dag_id=DAG_NAME, default_args=default_args, schedule_interval="@daily"
@@ -174,15 +176,15 @@ t5 = PythonOperator(
     dag=dag
 )
 
-# t3 = SubDagOperator(
-#     task_id='subdag',
-#     # executor=CeleryExecutor(),  # デフォルトはSequentialExecutorで並列実行されない
-#     subdag=subdag(DAG_NAME, 'subdag', default_args, t2),
-#     default_args=default_args,
-#     provide_context=True,
-#     dag=dag,
-# )
+t6 = TriggerDagRunOperator(
+    task_id="test_trigger_dagrun",
+    trigger_dag_id="example_trigger_target_dag",  # Ensure this equals the dag_id of the DAG to trigger
+    conf={"message": "Hello World"},
+    dag=dag,
+)
 
 t0 >> t1 >> [t2, t3] 
 t2 >> t4
 t3 >> t5
+t4 >> t6
+t5 >> t6
