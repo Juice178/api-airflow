@@ -3,12 +3,17 @@ from airflow.executors.celery_executor import CeleryExecutor
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.subdag_operator import SubDagOperator
+from airflow.operators.dagrun_operator import TriggerDagRunOperator
+
 import pandas as pd
+import os
+import pendulum
 # from custom_operator.spotify_operator import SpotifyOperator
 
 
 from apis.spotify import Spotipy
 from lib.config import read_credential
+from lib.s3 import write_df_to_s3
 
 import sys
 from datetime import datetime, timedelta
@@ -17,8 +22,8 @@ import os
 default_args = {
     'owner': 'Airflow', 
     'depends_on_past' : False, 
-    'start_date' : datetime(2020, 3, 1), 
-    'end_date' : datetime(2020, 3, 2), 
+    'start_date' : datetime(2020, 8, 1), 
+    # 'end_date' : datetime(2020, 3, 2),
     # 'email': ['ariflow@example.com'], 
     # 'email_on_failure': False, 
     # 'email_on_retry': False, 
@@ -31,11 +36,13 @@ default_args = {
 }
 
 
-def _create_instance(conf, **context):
+def _create_instance(**context):
     """
     Create an instance of a wrapper class for Spotify API 
     """
     print(os.listdir())
+    env = os.getenv('env', 'stg')
+    conf = f'./dags/spotify-collect/conf/{env}/credentials.yml'
     parameter = read_credential(conf)
     sp_client = Spotipy(parameter['client_id'], parameter['client_secret'])
     context['task_instance'].xcom_push(key='sp_client', value = sp_client)
@@ -56,7 +63,7 @@ def _get_top50(country, **context):
 
 def _get_artist_info(country, **context):
     """
-    Get the most popular 10 songs per an artist
+    Get the most popular 10 songs for an artist
     """
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     if country == "JP":
@@ -69,52 +76,53 @@ def _get_artist_info(country, **context):
     for i, artist_id in enumerate(artist_ids):
         tracks = sp_client.get_artist_top_10_tracks(artist_id, country)
         if i == 0:
-            df = create_dataframe(artist_id, tracks)
+            df = create_dataframe(artist_id, tracks, country)
         else:
-            tmp_df = create_dataframe(artist_id, tracks)
+            tmp_df = create_dataframe(artist_id, tracks, country)
             df = df.append(tmp_df, ignore_index=True)
 
+    # print("os.listdir")
+    # print(os.listdir())
+    parameter = read_credential("./plugins/secrets/aws_access_key.yml")
+    execution_date = context['execution_date']
+    print(f"Execution date is {execution_date}")
+    partition_dt = get_partition_time(execution_date)
+    env = os.getenv('env', 'stg')
+    outpath = f's3:///data-lake-{env}/spotify/top50/{partition_dt}/top10_popular_songs_of_artists-{country}.csv'
+    write_df_to_s3(df, outpath, parameter)
 
-def create_dataframe(artist_id, tracks):
+    print("Succeeded in writing csv file to s3")
+
+
+def create_dataframe(artist_id, tracks, country):
     """
     Create a dataframe containing information about each artist
     """
-    d = {'artist_id': [artist_id] * len(tracks), 'album_name': [], 'song_name': [], 'release_date': [], 'total_tracks': []}
+
+    d = {'artist_id': [artist_id] * len(tracks), 'album_name': [], 'song_name': [], 'release_date': [], 'total_tracks': [], 'country': []}
     for track in tracks:
         d['album_name'].append(track['album']['name'])
         d['song_name'].append(track['name'])
         d['release_date'].append(track['album']['release_date'])
         d['total_tracks'].append(track['album']['total_tracks'])
+        d['country'].append(country)
     df = pd.DataFrame(data=d)
     return df
 
-def subdag(parent_dag_name, child_dag_name, args, t2, **context):
-    """ 各idに対して実行する処理フローを記述したDAGを返す """
-    #sp_client = context['task_instance'].xcom_pull(key='sp_client')
-    sub_dag = DAG(dag_id=f"{parent_dag_name}.{child_dag_name}", default_args=args)
-    #sub_dag = DAG(dag_id="{}.{}".format(parent_dag_name, child_dag_name), default_args=args)
-    print("-- test end --")
-    for country in ['US', 'JPN']:
-        t3 = PythonOperator(
-            task_id='{}-task-1'.format(country),
-            # conf='./dags/spotify/conf/credentials.yml',
-            python_callable = _test,
-            provide_context=True,
-            dag=sub_dag
-        )
-        # t2 >> t3
 
-    return sub_dag
+def get_partition_time(execution_date):
+    dt = f"dt_y={execution_date.format('%Y')}/dt_m={execution_date.format('%Y-%m')}/dt_d={execution_date.format('%Y-%m-%d')}"
+    return dt
 
 def _test(**context):
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     print(sp_client.debug())
 
 
-DAG_NAME = "spotify"
+DAG_NAME = "spotify-collect"
 
 dag = DAG(
-      dag_id=DAG_NAME, default_args=default_args, schedule_interval=timedelta(days=1)
+      dag_id=DAG_NAME, default_args=default_args, schedule_interval="@daily"
     )
 
 t0 = DummyOperator(
@@ -127,7 +135,7 @@ t1 = PythonOperator(
     task_id="create_instance",
     # conf='./dags/spotify/conf/credentials.yml',
     python_callable = _create_instance,
-    op_kwargs={'conf': './dags/spotify/conf/credentials.yml'},
+    # op_kwargs={'conf': './dags/spotify/conf/credentials.yml'},
     provide_context=True,
     dag=dag
 )
@@ -168,15 +176,15 @@ t5 = PythonOperator(
     dag=dag
 )
 
-# t3 = SubDagOperator(
-#     task_id='subdag',
-#     # executor=CeleryExecutor(),  # デフォルトはSequentialExecutorで並列実行されない
-#     subdag=subdag(DAG_NAME, 'subdag', default_args, t2),
-#     default_args=default_args,
-#     provide_context=True,
-#     dag=dag,
-# )
+t6 = TriggerDagRunOperator(
+    task_id="test_trigger_dagrun",
+    trigger_dag_id="example_trigger_target_dag",  # Ensure this equals the dag_id of the DAG to trigger
+    conf={"message": "Hello World"},
+    dag=dag,
+)
 
 t0 >> t1 >> [t2, t3] 
 t2 >> t4
 t3 >> t5
+t4 >> t6
+t5 >> t6
