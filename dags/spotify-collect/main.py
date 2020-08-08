@@ -178,7 +178,7 @@ t5 = PythonOperator(
 
 t6 = TriggerDagRunOperator(
     task_id="test_trigger_dagrun",
-    trigger_dag_id="example_trigger_target_dag",  # Ensure this equals the dag_id of the DAG to trigger
+    trigger_dag_id="spotify-etl",  # Ensure this equals the dag_id of the DAG to trigger
     conf={"message": "Hello World"},
     dag=dag,
 )
