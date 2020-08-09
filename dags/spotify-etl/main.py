@@ -4,6 +4,8 @@ from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.contrib.operators.spark_submit_operator import SparkSubmitOperator
 from datetime import datetime, timedelta
+from lib.config import read_credential
+import json
 
 default_args = {
     'owner': 'Airflow', 
@@ -28,18 +30,26 @@ dag = DAG(
       dag_id=DAG_NAME, default_args=default_args, schedule_interval="@once"
     )
 
+
+
 t0 = DummyOperator(
     task_id='spotify-etl',
     trigger_rule='dummy',
     dag=dag,
 )
 
+_config = {
+    'master' : 'local',
+    'deploy-mode' : 'client'
+}
+
 t1 = SparkSubmitOperator(
     task_id='spark_submit_job',
-    conn_id='_demo',
     application=f'{settings.DAGS_FOLDER}/{DAG_NAME}/demo.py',
     packages="org.apache.hadoop:hadoop-aws:2.7.1",
+    application_args=[json.dumps(read_credential("./plugins/secrets/aws_access_key.yml"))],
     dag=dag,
+    **_config
 )
 
 t0 >> t1

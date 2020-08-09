@@ -4,12 +4,20 @@ from operator import add
 
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
+import sys
+import json
+
 
 def _demo():
-    access_key = "******"
-    secret_key = "*******"
+    print("read access keys")
+    parameter = json.loads(sys.argv[1])
+    # parameter = read_credential("./plugins/secrets/aws_access_key.yml")
+    access_key = parameter["access_key"]
+    secret_key = parameter["secret_key"]
+    # it's necessary to set master value to local if you execute this program on a local machine
     spark = SparkSession\
         .builder\
+        .master("local")\
         .appName("Demo")\
         .getOrCreate()
 
@@ -33,3 +41,5 @@ def _demo():
     print(c)
 
     spark.stop()
+
+_demo()
