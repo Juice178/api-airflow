@@ -9,6 +9,9 @@ import json
 
 
 def _demo():
+    # print("message is: ")
+    # print(sys.argv[1:])
+    # print(sys.argv[2])
     print("read access keys")
     parameter = json.loads(sys.argv[1])
     # parameter = read_credential("./plugins/secrets/aws_access_key.yml")
@@ -35,7 +38,8 @@ def _demo():
     sc._jsc.hadoopConfiguration().set("fs.s3.impl", "org.apache.hadoop.fs.s3.S3FileSystem")
 
     # fetch from s3, returns RDD
-    csv_rdd = spark.sparkContext.textFile("s3n://data-lake-stg/spotify/top50/dt_y=2020/dt_m=2020-08/dt_d=2020-08-03/top10_popular_songs_of_artists-JP.csv")
+    s3_path = "s3n://" + sys.argv[2] + "/*.csv"
+    csv_rdd = spark.sparkContext.textFile(s3_path)
     c = csv_rdd.count()
     print("~~~~~~~~~~~~~~~~~~~~~count~~~~~~~~~~~~~~~~~~~~~")
     print(c)

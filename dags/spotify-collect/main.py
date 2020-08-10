@@ -1,4 +1,4 @@
-from airflow import DAG
+from airflow import DAG, settings
 from airflow.executors.celery_executor import CeleryExecutor
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
@@ -42,7 +42,7 @@ def _create_instance(**context):
     """
     print(os.listdir())
     env = os.getenv('env', 'stg')
-    conf = f'./dags/spotify-collect/conf/{env}/credentials.yml'
+    conf = f'{settings.DAGS_FOLDER}/{DAG_NAME}/conf/{env}/credentials.yml'
     parameter = read_credential(conf)
     sp_client = Spotipy(parameter['client_id'], parameter['client_secret'])
     context['task_instance'].xcom_push(key='sp_client', value = sp_client)
@@ -83,14 +83,19 @@ def _get_artist_info(country, **context):
 
     # print("os.listdir")
     # print(os.listdir())
-    parameter = read_credential("./plugins/secrets/aws_access_key.yml")
+    parameter = read_credential(f"{settings.PLUGINS_FOLDER}/secrets/aws_access_key.yml")
     execution_date = context['execution_date']
     print(f"Execution date is {execution_date}")
     partition_dt = get_partition_time(execution_date)
     env = os.getenv('env', 'stg')
-    outpath = f's3:///data-lake-{env}/spotify/top50/{partition_dt}/top10_popular_songs_of_artists-{country}.csv'
+    s3_bucket = f"data-lake-{env}"
+    s3_path = f"/spotify/top50/{partition_dt}"
+    file_name = f"/top10_popular_songs_of_artists-{country}.csv"
+    outpath = "s3:///" + s3_bucket + s3_path + file_name
+    #outpath = f's3:///data-lake-{env}/spotify/top50/{partition_dt}/top10_popular_songs_of_artists-{country}.csv'
     write_df_to_s3(df, outpath, parameter)
 
+    context['task_instance'].xcom_push(key=f"s3_path", value=f"{s3_bucket}{s3_path}")
     print("Succeeded in writing csv file to s3")
 
 
@@ -117,6 +122,12 @@ def get_partition_time(execution_date):
 def _test(**context):
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     print(sp_client.debug())
+
+def trigger(context, dag_run_obj):
+    if context['params']['condition_param']:
+        dag_run_obj.payload = {"s3_path" : context['task_instance'].xcom_pull(key='s3_path')}
+        print(dag_run_obj.payload)
+        return dag_run_obj
 
 
 DAG_NAME = "spotify-collect"
@@ -179,7 +190,8 @@ t5 = PythonOperator(
 t6 = TriggerDagRunOperator(
     task_id="test_trigger_dagrun",
     trigger_dag_id="spotify-etl",  # Ensure this equals the dag_id of the DAG to trigger
-    conf={"message": "Hello World"},
+    python_callable=trigger,
+    params={'condition_param': True},
     dag=dag,
 )
 

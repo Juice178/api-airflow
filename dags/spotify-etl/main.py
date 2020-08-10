@@ -32,24 +32,44 @@ dag = DAG(
 
 
 
-t0 = DummyOperator(
-    task_id='spotify-etl',
-    trigger_rule='dummy',
-    dag=dag,
-)
+def check_dagrun_conf(**context):
+    """
+    Print the payload "message" passed to the DagRun conf attribute.
+    :param dict kwargs: Context
+    :param context: The execution context
+    :type context: dict
+    """
+    # print("Remotely received value of {} for key=message".
+    #       format(kwargs['dag_run'].conf['message']))
+    print("Remotely received value of {} for key=message".format(context["dag_run"].conf["s3_path"]))
 
 _config = {
     'master' : 'local',
     'deploy-mode' : 'client'
 }
 
-t1 = SparkSubmitOperator(
-    task_id='spark_submit_job',
+t0 = DummyOperator(
+    task_id='spotify-etl',
+    trigger_rule='dummy',
+    dag=dag,
+)
+
+t1 = PythonOperator(
+    task_id='run_this',
+    provide_context=True,
+    python_callable=check_dagrun_conf,
+    dag=dag,
+)
+
+t2 = SparkSubmitOperator(
+    task_id='spark-task',
     application=f'{settings.DAGS_FOLDER}/{DAG_NAME}/demo.py',
     packages="org.apache.hadoop:hadoop-aws:2.7.1",
-    application_args=[json.dumps(read_credential("./plugins/secrets/aws_access_key.yml"))],
+    application_args=[json.dumps(read_credential(f"{settings.PLUGINS_FOLDER}/secrets/aws_access_key.yml")), '{{ dag_run.conf["s3_path"]}}'],
     dag=dag,
     **_config
 )
 
-t0 >> t1
+t0 >>t1 >> t2
+
+# t0 >> t1
