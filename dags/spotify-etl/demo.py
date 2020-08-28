@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 from random import random
 from operator import add
@@ -6,7 +7,14 @@ from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
 import sys
 import json
+from pyspark.sql.types import DateType
+from pyspark.sql.functions import to_timestamp, col, date_format
 
+# deal with encoding error in Pyspark 
+# https://stackoverflow.com/questions/39662384/pyspark-unicodeencodeerror-ascii-codec-cant-encode-character
+
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 def _demo():
     # print("message is: ")
@@ -24,6 +32,8 @@ def _demo():
         .appName("Demo")\
         .getOrCreate()
 
+    print("spark versio is:", spark.version)
+
     sc = spark.sparkContext
 
     # remove this block if use core-site.xml and env variable
@@ -39,10 +49,28 @@ def _demo():
 
     # fetch from s3, returns RDD
     s3_path = "s3n://" + sys.argv[2] + "/*.csv"
-    csv_rdd = spark.sparkContext.textFile(s3_path)
-    c = csv_rdd.count()
-    print("~~~~~~~~~~~~~~~~~~~~~count~~~~~~~~~~~~~~~~~~~~~")
-    print(c)
+    df = spark.read.load(s3_path, format="csv", sep=",", header="true", encoding="utf-8")
+    print("df.show() with encoding")
+    df.show()
+
+    print("convert str to date")
+    df = df.withColumn("release_date", df["release_date"].cast(DateType()))
+    df.show()
+
+    print("format date")
+
+    df = df.withColumn("dt_y", date_format(col("release_date"), 'yyyy-MM')) \
+           .withColumn("dt_m", date_format(col("release_date"), 'yyyy-MM')) \
+           .withColumn("dt_d", date_format(col("release_date"), 'yyyy-MM-dd'))
+
+    # df = df.withColumn("release_date", df["release_date"].cast(DateType()))
+
+    print("df.show() after converting")
+    df.show()
+    # csv_rdd = spark.sparkContext.textFile(s3_path)
+    # c = csv_rdd.count()
+    # print("~~~~~~~~~~~~~~~~~~~~~count~~~~~~~~~~~~~~~~~~~~~")
+    # print(c)
 
     spark.stop()
 
