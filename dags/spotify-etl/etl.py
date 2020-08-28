@@ -65,8 +65,17 @@ def _demo():
 
     # df = df.withColumn("release_date", df["release_date"].cast(DateType()))
 
+    # TODO: ARRANGE THE ORDER OF COLUMNS
+
     print("df.show() after converting")
     df.show()
+
+    partition_columns = ["artist_id", "dt_y", "dt_m", "dt_d"]
+
+    print("Write data to s3")
+
+    df.write.mode('overwrite').partitionBy(partition_columns).csv("s3n://data-lake-stg/spotify/artist-songs/", header=True, compression="gzip")
+
     # csv_rdd = spark.sparkContext.textFile(s3_path)
     # c = csv_rdd.count()
     # print("~~~~~~~~~~~~~~~~~~~~~count~~~~~~~~~~~~~~~~~~~~~")

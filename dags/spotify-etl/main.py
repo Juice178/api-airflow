@@ -63,7 +63,7 @@ t1 = PythonOperator(
 
 t2 = SparkSubmitOperator(
     task_id='spark-task',
-    application=f'{settings.DAGS_FOLDER}/{DAG_NAME}/demo.py',
+    application=f'{settings.DAGS_FOLDER}/{DAG_NAME}/etl.py',
     packages="org.apache.hadoop:hadoop-aws:2.7.1",
     application_args=[json.dumps(read_credential(f"{settings.PLUGINS_FOLDER}/secrets/aws_access_key.yml")), '{{ dag_run.conf["s3_path"]}}'],
     dag=dag,
