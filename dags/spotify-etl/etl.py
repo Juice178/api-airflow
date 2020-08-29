@@ -2,6 +2,7 @@
 import sys
 from random import random
 from operator import add
+import os
 
 from pyspark.sql import SparkSession
 from pyspark.conf import SparkConf
@@ -70,11 +71,15 @@ def _demo():
     print("df.show() after converting")
     df.show()
 
-    partition_columns = ["artist_id", "dt_y", "dt_m", "dt_d"]
+    partition_columns = ["dt_y", "dt_m", "dt_d"]
+
+    env = os.getenv('env', 'stg')
+    dst_s3 = "s3n://data-lake-{env}/spotify/artist-songs/".format(env)
+
 
     print("Write data to s3")
 
-    df.write.mode('overwrite').partitionBy(partition_columns).csv("s3n://data-lake-stg/spotify/artist-songs/", header=True, compression="gzip")
+    df.write.mode('overwrite').partitionBy(partition_columns).csv(dst_s3, header=True, compression="gzip")
 
     # csv_rdd = spark.sparkContext.textFile(s3_path)
     # c = csv_rdd.count()
