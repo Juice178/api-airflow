@@ -58,6 +58,10 @@ def _get_top50(country, **context):
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     parameter = context['task_instance'].xcom_pull(key='parameter')
     playlist = sp_client.get_playlist_tracks(playlist_id=parameter[f"{country}_top50"], limit=50)
+    df = pd.DataFrame(data=playlist)
+    print("top 50 songs: ")
+    print(df.head())
+    # print(playlist)
     context['task_instance'].xcom_push(key=f"{country}_top50_playlist", value = playlist)
 
 

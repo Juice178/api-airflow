@@ -14,8 +14,8 @@ from pyspark.sql.functions import to_timestamp, col, date_format
 # deal with encoding error in Pyspark 
 # https://stackoverflow.com/questions/39662384/pyspark-unicodeencodeerror-ascii-codec-cant-encode-character
 
-reload(sys)
-sys.setdefaultencoding('utf-8')
+# reload(sys)
+# sys.setdefaultencoding('utf-8')
 
 def _demo():
     # print("message is: ")
@@ -74,7 +74,7 @@ def _demo():
     partition_columns = ["dt_y", "dt_m", "dt_d"]
 
     env = os.getenv('env', 'stg')
-    dst_s3 = "s3n://data-lake-{env}/spotify/artist-songs/".format(env)
+    dst_s3 = 's3n://data-lake-' + env + '/spotify/artist-songs/'
 
 
     print("Write data to s3")
