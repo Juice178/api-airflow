@@ -192,7 +192,7 @@ t5 = PythonOperator(
 )
 
 t6 = TriggerDagRunOperator(
-    task_id="test_trigger_dagrun",
+    task_id="trigger_dagrun",
     trigger_dag_id="spotify-etl",  # Ensure this equals the dag_id of the DAG to trigger
     python_callable=trigger,
     params={'condition_param': True},

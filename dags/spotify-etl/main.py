@@ -54,14 +54,14 @@ t0 = DummyOperator(
     dag=dag,
 )
 
-t1 = PythonOperator(
-    task_id='run_this',
-    provide_context=True,
-    python_callable=check_dagrun_conf,
-    dag=dag,
-)
+# t1 = PythonOperator(
+#     task_id='run_this',
+#     provide_context=True,
+#     python_callable=check_dagrun_conf,
+#     dag=dag,
+# )
 
-t2 = SparkSubmitOperator(
+t1 = SparkSubmitOperator(
     task_id='spark-task',
     application=f'{settings.DAGS_FOLDER}/{DAG_NAME}/etl.py',
     packages="org.apache.hadoop:hadoop-aws:2.7.1",
@@ -70,6 +70,6 @@ t2 = SparkSubmitOperator(
     **_config
 )
 
-t0 >>t1 >> t2
+t0 >>t1
 
 # t0 >> t1

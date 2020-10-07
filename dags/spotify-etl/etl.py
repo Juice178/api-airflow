@@ -17,7 +17,7 @@ from pyspark.sql.functions import to_timestamp, col, date_format
 # reload(sys)
 # sys.setdefaultencoding('utf-8')
 
-def _demo():
+def main():
     # print("message is: ")
     # print(sys.argv[1:])
     # print(sys.argv[2])
@@ -30,7 +30,7 @@ def _demo():
     spark = SparkSession\
         .builder\
         .master("local")\
-        .appName("Demo")\
+        .appName("DailyMusicInfo")\
         .getOrCreate()
 
     print("spark versio is:", spark.version)
@@ -54,7 +54,7 @@ def _demo():
     print("df.show() with encoding")
     df.show()
 
-    print("convert str to date")
+    print("convert type of relase_date to date")
     df = df.withColumn("release_date", df["release_date"].cast(DateType()))
     df.show()
 
@@ -88,4 +88,5 @@ def _demo():
 
     spark.stop()
 
-_demo()
+if __name__ == "__main__":
+    main()
