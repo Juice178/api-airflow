@@ -9,11 +9,13 @@ def get_s3_path_of_tody():
     dt_d = datetime.now().day
    
 
-def write_df_to_s3(df, outpath, aws_secret):
+def write_df_to_s3(df, dst_s3, aws_secret):
     """
     Write a dataframe to s3
     """
-    bytes_to_write = df.to_csv(None, index=False).encode()
+    # df.to_csv(outpath, index=False, encoding='utf-8')
+    bytes_to_write = df.to_csv(None, index=False).encode("utf-8")
     fs = s3fs.S3FileSystem(key=aws_secret['access_key'], secret=aws_secret['secret_key'])
-    with fs.open(outpath, 'wb') as f:
+    print("write a file to s3 with encoding")
+    with fs.open(dst_s3, 'wb',  encoding='utf-8') as f:
       f.write(bytes_to_write)
