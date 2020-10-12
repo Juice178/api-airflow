@@ -2,6 +2,7 @@ import pendulum
 pendulum.set_locale('ja')
 import requests
 from bs4 import BeautifulSoup
+import wikipedia
 
 class Scraper:
     def __init__(self):
@@ -41,7 +42,33 @@ class ArtistScraper(Scraper):
         table_data = self.soup.find("th", text=text).find_next_sibling("td")
         return table_data
 
-    def fetch_artist_info(self, url):
+    def map_list_to_dict(self, func, values):
+        return dict((func(v), v) for v in values)
+
+    def get_artist_url(self, artist_name):
+        """
+        Get a page url of an artist page 
+        """
+        num_of_token = 30
+        start_index, end_index = 0, 1
+        artist_name = "".join(artist_name.lower().split())
+        print(f"artist_name : {artist_name}")
+        while True:
+            values = wikipedia.search(artist_name, results=num_of_token)[start_index*num_of_token:end_index*num_of_token]
+            if len(values) == 0:
+                return None
+            # print(f"values {values}")
+            suggested_values = self.map_list_to_dict(lambda s: "".join(s.lower().split()), values)
+            print(f"values {suggested_values}")
+            if artist_name in suggested_values:
+                page = wikipedia.page(suggested_values[artist_name])
+                print(f"page url is: {page.url}")
+                return page.url
+            start_index += 1
+            end_index   += 1
+
+    def fetch_artist_info(self, artist_name):
+        url = self.get_artist_url(artist_name)
         super().get(url=url)
         for header in self.soup.select(".infobox th")[:]:
             if header.text in self.items:
@@ -72,7 +99,8 @@ if __name__ == "__main__":
     scraper = ArtistScraper()
     url='https://en.wikipedia.org/wiki/Jin_Akanishi'
     url = 'https://en.wikipedia.org/wiki/Zara_Larsson'
-    scraper.fetch_artist_info(url)
+    artist = "Zara Larsson"
+    scraper.fetch_artist_info(artist)
 
 
     
