@@ -74,56 +74,39 @@ class ArtistScraper(Scraper):
         super().get(url=url)
         for header in self.soup.select(".infobox th")[:]:
             tr = header.text.lower().encode('ascii', errors='ignore').decode('utf8')
-            print("tr", tr)
+            tr = "".join(tr.split())
                # if header.text in self.items:
-            table_data = self.get_table_data(header.text)
-            print(table_data)
+            # table_data = self.get_table_data(header.text)
+            # print(table_data)
             if tr == "born":
+                table_data = self.get_table_data(header.text)
                 data = table_data.find(class_="bday")
                 self.items["Born"] = [data.text]
             elif tr == "occupation":
+                table_data = self.get_table_data(header.text)
                 lists = table_data.find_all("li")
                 data = [item.text for item in lists]
                 if len(data) == 0:
                     data = [table_data.text]
                 self.items["Occupation"] = data
             elif tr == "genres":
+                table_data = self.get_table_data(header.text)
                 lists = table_data.find_all("li")
                 data = [item.text for item in lists]
                 if len(data) == 0:
                     data = [table_data.text]
                 self.items["Genres"] = data
             elif tr == "instruments":
+                table_data = self.get_table_data(header.text)
                 lists = table_data.find_all("li")
                 data = [item.text for item in lists]
                 if len(data) == 0:
                     data = [table_data.text]
                 self.items["Instruments"] = data
             elif tr == "yearsactive":
+                table_data = self.get_table_data(header.text)
                 data = [table_data.text]
                 self.items["Years active"] = data
-
-            # if header.text in self.items:
-            #     table_data = self.get_table_data(header.text)
-            #     if header.text == "born":
-            #         data = table_data.find(class_="bday")
-            #         self.items["Born"] = data.text
-            #     elif header.text == "occupation":
-            #         lists = table_data.find_all("li")
-            #         data = [self.item.text for self.item in lists]
-            #         self.items["Occupation"] = data
-            #     elif header.text == "genres":
-            #         lists = table_data.find_all("li")
-            #         data = [item.text for item in lists]
-            #         self.items["Genres"] = data
-            #     elif header.text == "instruments":
-            #         lists = table_data.find_all("li")
-            #         data = [item.text for item in lists]
-            #         self.items["Instruments"] = data
-            #     elif header.text == "yearsactive":
-            #         data = table_data.text
-            #         self.items["Years active"] = data
-        print(self.items)
         return self.items
 
 

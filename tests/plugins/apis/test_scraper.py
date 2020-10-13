@@ -26,3 +26,11 @@ class TestScraper:
                 'Instruments': ['Vocals'],
                 'Years active': ['2008–present']
                 }
+        assert scraper.fetch_artist_info(" jin akanishi ") ==\
+                {
+                'Born': ['1984-07-04'],
+                'Occupation': ['Singer', 'songwriter', 'arranger', 'actor', 'television personality'],
+                'Genres': ['Pop', 'dance', 'R&B', 'hip hop', 'electronic'],
+                'Instruments': ['Vocals', 'guitar', 'piano'],
+                'Years active': ['1998–present']
+                }
