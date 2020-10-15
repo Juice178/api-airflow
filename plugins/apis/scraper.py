@@ -4,38 +4,111 @@ import requests
 from bs4 import BeautifulSoup
 import wikipedia
 
+
 class Scraper:
-    def __init__(self):
+    """
+    Parse HTML file given URL.
+
+    Parameters
+    ----------
+        response: class:`requests.models.Response` object.
+        soup: class:`bs4.BeautifulSoup` object. 
+    """
+
+    def __init__(self, response=None, soup=None):
         self.response = None
         self.soup = None
 
     def get(self, url):
+        """Create BeautifulSoup object from a responded HTML
+
+        Parameters
+        ----------
+        url: str
+            URL of a page that is to be parsed.
+
+        Returns
+        -------
+            None
+        """
+
         # url = 'https://en.wikipedia.org/wiki/Jin_Akanishi'
         self.response = requests.get(url)
         # Create BeautifulSoup object from a responded HTML
         self.soup = BeautifulSoup(self.response.text, 'html.parser')
 
-    def is_modified_since_last_time(self):
+    def is_modified_since_last_time(self, s3_dst="s3://test"):
+        """Check if there is a modification to a given HTML file
+        since the last time the file was fetched.
+
+        Parameters
+        ----------
+        s3_dst: str
+            A file(JSON) existing in S3 whose content is the last time you fetched the file
+        """
+
         # TODO: GET last modified time from s3 or somewhere
         dt = pendulum.datetime(2020, 1, 1)
         last_modified = self.response.headers['Last-Modified']
         if dt < last_modified:
             self.write_last_modified_t(last_modified, s3_dst="s3://test")
+            return True 
+        return False
 
     def write_last_modified_t(self,last_modified, s3_dst):
+        """Write last_modified time to a given file 
+
+        Parameters
+        ----------
+        last_modified: str
+            Time at which a page is modified
+
+        s3_dst: str
+            A file(JSON) existing in S3 whose content is the last time you fetched the file
+        """
+
         # TODO: Write last_modified value to s3 or somewhere
         pass
 
 class ArtistScraper(Scraper):
+    """
+    A subclass of Scraper class.
+    This class is used for parsing a Wikipedia page of a given artist, 
+    and for retrieving some information(items) about that artist.
+
+    Parameters
+    ----------
+        response: class:`requests.models.Response` object.
+        soup: class:`bs4.BeautifulSoup` object. 
+        items: dict
+            Pieces of information that is to be got 
+
+    Examples
+    --------
+    >>> from scraper import ArtistScraper
+    >>> scraper = ArtistScraper()
+    >>> artist = "Zara Larsson"
+    >>> scraper.fetch_artist_info(artist)
+    >>> scraper.items
     items = {
-            "Born": str, 
+            "Born": ['1997-12-16'],
+            "Occupation": ['Singer', 'songwriter'],
+            "Genres":['Pop', 'dance-pop', 'R&B'],
+            "Instruments":'Instruments': ['Vocals'], 
+            "Years active":' Years active': ['2008–present']
+            }
+    """
+
+    items = {
+            "Born": list, 
             "Occupation": list, 
             "Genres":list, 
             "Instruments":list,
-            "Years active":str
+            "Years active":list
             }
-    def __init__(self):
-        super().__init__()
+
+    def __init__(self, response=None, soup=None):
+        super().__init__(response, soup)
         self.items = ArtistScraper.items
 
     def get_table_data(self, text):
@@ -43,11 +116,33 @@ class ArtistScraper(Scraper):
         return table_data
 
     def map_list_to_dict(self, func, values):
+        """
+        Apply func to values and return it as a dictionary
+
+        Parameters
+        ----------
+        func: <class 'function'>
+            A function being applied to values
+
+        values: list
+            Values being applied to by a given function
+        """
+
         return dict((func(v), v) for v in values)
 
     def get_artist_url(self, artist_name):
         """
-        Get a page url of an artist page 
+        Get URL of an artist page 
+
+        Parameters
+        ----------
+        artist_name: str
+            Artist name that is to be fetched URL for
+
+        Returns
+        -------
+        page.url: str 
+            url of Wikipedia about an artist
         """
         num_of_token = 30
         start_index, end_index = 0, 1
@@ -68,6 +163,20 @@ class ArtistScraper(Scraper):
             end_index   += 1
 
     def fetch_artist_info(self, artist_name):
+        """
+        Get Artist information.
+
+        Parameters
+        ----------
+        artist_name: str
+            Artist name whose informtion is to be fetched
+
+        Returns
+        -------
+        items: dict 
+            Pieces of information about an artist
+        """
+
         url = self.get_artist_url(artist_name)
         if url is None:
             return None
@@ -116,6 +225,7 @@ if __name__ == "__main__":
     url = 'https://en.wikipedia.org/wiki/Zara_Larsson'
     artist = "Zara Larsson"
     scraper.fetch_artist_info(artist)
+    print(scraper.items)
 
 
     
