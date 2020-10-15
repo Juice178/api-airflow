@@ -7,11 +7,12 @@ from datetime import datetime, timedelta
 
 
 
-def _fetch_artist_info(**context):
+def _fetch_artist_info(artist, **context):
     print(context)
-    test_url = 'https://en.wikipedia.org/wiki/Zara_Larsson'
+    # test_url = 'https://en.wikipedia.org/wiki/Zara_Larsson'
+    artist = "Zara Larsson"
     scraper = ArtistScraper()
-    scraper.fetch_artist_info(test_url)
+    scraper.fetch_artist_info(artistl)
     return True
 
 default_args = {
