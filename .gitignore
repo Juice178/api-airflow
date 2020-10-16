@@ -1,9 +1,8 @@
 logs/
 conf/
 dags/*/conf/*
-/__pycache__/
-/*/__pycache__/
-/*/*/__pycache__/
+__pycache__/
+*.pyc
 plugins/secrets/*
 airflow.cfg
 airflow.db
