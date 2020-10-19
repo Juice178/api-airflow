@@ -14,6 +14,7 @@ import pendulum
 from apis.spotify import Spotipy
 from lib.config import read_credential
 from lib.s3 import write_df_to_s3
+from lib.parameter import get_parameter
 
 import sys
 from datetime import datetime, timedelta
@@ -87,7 +88,9 @@ def _get_artist_info(country, **context):
 
     # print("os.listdir")
     # print(os.listdir())
-    parameter = read_credential(f"{settings.PLUGINS_FOLDER}/secrets/aws_access_key.yml")
+    # TODO: Use parameter store
+    # parameter = read_credential(f"{settings.PLUGINS_FOLDER}/secrets/aws_access_key.yml")
+    parameter = get_parameter("airflow-s3")
     execution_date = context['execution_date']
     print(f"Execution date is {execution_date}")
     partition_dt = get_partition_time(execution_date)
