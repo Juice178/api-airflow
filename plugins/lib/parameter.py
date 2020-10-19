@@ -17,6 +17,6 @@ def get_parameter(ssm_name: str):
     return aws_access_key
 
 
-if __name__ == "__main__":
-    aws_access_key = get_parameter('airflow-s3')
-    print(f"response: {aws_access_key}")
+# if __name__ == "__main__":
+#     aws_access_key = get_parameter('airflow-s3')
+#     print(f"response: {aws_access_key}")
