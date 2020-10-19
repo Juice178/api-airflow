@@ -1,8 +1,15 @@
+"""
+This dag only runs some tasks to get music information from Spoitfy.
+After getting information, trigger two dags to
+1.Get master data about an artist
+2.Partition data by Spark
+"""
+
 from airflow import DAG, settings
 from airflow.executors.celery_executor import CeleryExecutor
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
-from airflow.operators.subdag_operator import SubDagOperator
+# from airflow.operators.subdag_operator import SubDagOperator
 from airflow.operators.dagrun_operator import TriggerDagRunOperator
 
 import pandas as pd
@@ -37,31 +44,40 @@ default_args = {
 }
 
 
-def _create_instance(**context):
+def _create_instance(ssm_key, **context):
     """
     Create an instance of a wrapper class for Spotify API 
-    """
-    # print(os.listdir())
-    # env = os.getenv('env', 'stg')
-    # conf = f'{settings.DAGS_FOLDER}/{DAG_NAME}/conf/{env}/credentials.yml'
-    # parameter = read_credential(conf)
-    parameter = get_parameter("spotify-key")
-    sp_client = Spotipy(parameter['client_id'], parameter['client_secret'])
-    context['task_instance'].xcom_push(key='sp_client', value = sp_client)
-    msg = sp_client.debug()
-    print(msg)
-    # context['task_instance'].xcom_push(key='parameter', value = parameter)
 
+    Parameters
+    ----------
+    ssm_key: str
+        name of ssm key with which a key-value pair is to be fetched.
+    """
+    # ssm_key = "spotify-key"
+    # Get access  a key, password pair as a dictionary
+    parameter = get_parameter(ssm_key)
+    sp_client = Spotipy(parameter['client_id'], parameter['client_secret'])
+    context['task_instance'].xcom_push(key='sp_client', value=sp_client)
 
 def _get_top50(country, **context):
     """
-    Get Spotify catalog information about an artist's top 10 tracks
+    Get Spotify catalog information about an artist's top 10 tracks in the specified country
+
+    Parameters
+    ----------
+    country: str
+        A country in which top 10 tracks are fetched. 
+        Possible value: japan, global.
     """
+    # Pull a wrapper class for spotipy to manipulate Spotify information
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
-    # parameter = context['task_instance'].xcom_pull(key='parameter')
     env = os.getenv('env', 'stg')
+    # Read playlit ids
     conf = f'{settings.DAGS_FOLDER}/{DAG_NAME}/conf/{env}/credentials.yml'
     parameter = read_credential(conf)
+    # Get a playlist information as a dictinary
+    # Example: playlist_info = {'rank': [1], 'artist_name': [BTS], 'artist_id': [3Nrfpe0tUJi4K4DXYWgMUX],
+    #                           'album_name': [Dynamite (DayTime Version)], 'relase_date': [2020-08-28] }
     playlist = sp_client.get_playlist_tracks(playlist_id=parameter[f"{country}_top50"], limit=50)
     df = pd.DataFrame(data=playlist)
     print("top 50 songs: ")
@@ -72,33 +88,40 @@ def _get_top50(country, **context):
 
 def _get_artist_info(country, **context):
     """
-    Get the most popular 10 songs for an artist
+    Get the most popular 10 songs for an artist at execution point(time).
+
+    Parameters
+    ----------
+    country: str
+        A country in which top 10 songs are fetched. 
+        Possible value: US, JP.
     """
+
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     if country == "JP":
         playlist = context['task_instance'].xcom_pull(key='japan_top50_playlist')
     else:
         playlist = context['task_instance'].xcom_pull(key='global_top50_playlist')
 
-    artist_ids = playlist['artist_id']
+    artist_ids = set(playlist['artist_id'])
+    execution_date = context['execution_date']
+    t = execution_date.format('%Y-%m-%d')
 
+
+    # Get top 10 music for each artist
     for i, artist_id in enumerate(artist_ids):
         tracks = sp_client.get_artist_top_10_tracks(artist_id, country)
         if i == 0:
-            df = create_dataframe(artist_id, tracks, country)
+            df = create_dataframe(artist_id, tracks, country, t)
         else:
-            tmp_df = create_dataframe(artist_id, tracks, country)
+            tmp_df = create_dataframe(artist_id, tracks, country, t)
             df = df.append(tmp_df, ignore_index=True)
 
-    # print("os.listdir")
-    # print(os.listdir())
-    # TODO: Use parameter store
-    # parameter = read_credential(f"{settings.PLUGINS_FOLDER}/secrets/aws_access_key.yml")
     parameter = get_parameter("airflow-s3")
-    execution_date = context['execution_date']
     print(f"Execution date is {execution_date}")
     partition_dt = get_partition_time(execution_date)
     env = os.getenv('env', 'stg')
+    # TODO: Write s3 path in yaml file.
     s3_bucket = f"data-lake-{env}"
     s3_path = f"/spotify/top50/{partition_dt}"
     file_name = f"/top10_popular_songs_of_artists-{country}.csv"
@@ -110,9 +133,19 @@ def _get_artist_info(country, **context):
     print("Succeeded in writing csv file to s3")
 
 
-def create_dataframe(artist_id, tracks, country):
+def create_dataframe(artist_id, tracks, country, t):
     """
     Create a dataframe containing information about each artist
+
+    Parameters
+    ----------
+    artist_id: str
+    tracks: str
+    country: str
+        A country in which top 10 songs are fetched. 
+        Possible value: US, JP.
+    t: str
+        Execution time.
     """
 
     d = {'artist_id': [artist_id] * len(tracks), 'album_name': [], 'song_name': [], 'release_date': [], 'total_tracks': [], 'country': []}
@@ -127,15 +160,23 @@ def create_dataframe(artist_id, tracks, country):
 
 
 def get_partition_time(execution_date):
+    """
+    Format execution data as string date
+
+    Parameters
+    ----------
+    execution_date: class:`pendulum.pendulum.Pendulum` object
+        Execution date
+    """
+
+    print(type(execution_date))
     dt = f"dt_y={execution_date.format('%Y')}/dt_m={execution_date.format('%Y-%m')}/dt_d={execution_date.format('%Y-%m-%d')}"
     return dt
 
-def _test(**context):
-    sp_client = context['task_instance'].xcom_pull(key='sp_client')
-    print(sp_client.debug())
-
-
 def _trigger_spotify_artist(context, dag_run_obj):
+    """
+    Trigger a DAG to get an artist informaiton(master data).
+    """
     if context['params']['condition_param']:
         dag_run_obj.payload = {"artist" : "Zara Larsson"}
         print(f"context: {context}")
@@ -143,6 +184,9 @@ def _trigger_spotify_artist(context, dag_run_obj):
         return dag_run_obj
 
 def trigger(context, dag_run_obj):
+    """
+    Trigger a DAG to partition data by release date by using Spark.
+    """
     if context['params']['condition_param']:
         dag_run_obj.payload = {"s3_path" : context['task_instance'].xcom_pull(key='s3_path')}
         print(f"context: {context}")
@@ -168,6 +212,7 @@ t1 = PythonOperator(
     python_callable = _create_instance,
     # op_kwargs={'conf': './dags/spotify/conf/credentials.yml'},
     provide_context=True,
+    op_kwargs={'ssm_key': 'spotify-key'},
     dag=dag
 )
 
