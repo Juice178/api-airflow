@@ -41,15 +41,16 @@ def _create_instance(**context):
     """
     Create an instance of a wrapper class for Spotify API 
     """
-    print(os.listdir())
-    env = os.getenv('env', 'stg')
-    conf = f'{settings.DAGS_FOLDER}/{DAG_NAME}/conf/{env}/credentials.yml'
-    parameter = read_credential(conf)
+    # print(os.listdir())
+    # env = os.getenv('env', 'stg')
+    # conf = f'{settings.DAGS_FOLDER}/{DAG_NAME}/conf/{env}/credentials.yml'
+    # parameter = read_credential(conf)
+    parameter = get_parameter("spotify-key")
     sp_client = Spotipy(parameter['client_id'], parameter['client_secret'])
     context['task_instance'].xcom_push(key='sp_client', value = sp_client)
     msg = sp_client.debug()
     print(msg)
-    context['task_instance'].xcom_push(key='parameter', value = parameter)
+    # context['task_instance'].xcom_push(key='parameter', value = parameter)
 
 
 def _get_top50(country, **context):
@@ -57,7 +58,10 @@ def _get_top50(country, **context):
     Get Spotify catalog information about an artist's top 10 tracks
     """
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
-    parameter = context['task_instance'].xcom_pull(key='parameter')
+    # parameter = context['task_instance'].xcom_pull(key='parameter')
+    env = os.getenv('env', 'stg')
+    conf = f'{settings.DAGS_FOLDER}/{DAG_NAME}/conf/{env}/credentials.yml'
+    parameter = read_credential(conf)
     playlist = sp_client.get_playlist_tracks(playlist_id=parameter[f"{country}_top50"], limit=50)
     df = pd.DataFrame(data=playlist)
     print("top 50 songs: ")
