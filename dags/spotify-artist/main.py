@@ -7,12 +7,12 @@ from datetime import datetime, timedelta
 
 
 
-def _fetch_artist_info(artist, **context):
+def _fetch_artist_info(**context):
     print(context)
     # test_url = 'https://en.wikipedia.org/wiki/Zara_Larsson'
     artist = "Zara Larsson"
     scraper = ArtistScraper()
-    scraper.fetch_artist_info(artistl)
+    scraper.fetch_artist_info(artist)
     return True
 
 default_args = {
@@ -32,7 +32,7 @@ default_args = {
 }
 
 
-DAG_NAME = "artist-info"
+DAG_NAME = "spotify-artist"
 
 dag = DAG(
       dag_id=DAG_NAME, default_args=default_args, schedule_interval="@once"

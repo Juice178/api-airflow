@@ -127,9 +127,18 @@ def _test(**context):
     sp_client = context['task_instance'].xcom_pull(key='sp_client')
     print(sp_client.debug())
 
+
+def _trigger_spotify_artist(context, dag_run_obj):
+    if context['params']['condition_param']:
+        dag_run_obj.payload = {"artist" : "Zara Larsson"}
+        print(f"context: {context}")
+        print(dag_run_obj.payload)
+        return dag_run_obj
+
 def trigger(context, dag_run_obj):
     if context['params']['condition_param']:
         dag_run_obj.payload = {"s3_path" : context['task_instance'].xcom_pull(key='s3_path')}
+        print(f"context: {context}")
         print(dag_run_obj.payload)
         return dag_run_obj
 
@@ -192,7 +201,15 @@ t5 = PythonOperator(
 )
 
 t6 = TriggerDagRunOperator(
-    task_id="trigger_dagrun",
+    task_id="trigger_spotify-artist",
+    trigger_dag_id="spotify-artist",  # Ensure this equals the dag_id of the DAG to trigger
+    python_callable=_trigger_spotify_artist,
+    params={'condition_param': True},
+    dag=dag,
+)
+
+t7 = TriggerDagRunOperator(
+    task_id="trigger_spotify-etl",
     trigger_dag_id="spotify-etl",  # Ensure this equals the dag_id of the DAG to trigger
     python_callable=trigger,
     params={'condition_param': True},
@@ -202,5 +219,5 @@ t6 = TriggerDagRunOperator(
 t0 >> t1 >> [t2, t3] 
 t2 >> t4
 t3 >> t5
-t4 >> t6
-t5 >> t6
+t4 >> [t6, t7]
+t5 >> [t6, t7]
